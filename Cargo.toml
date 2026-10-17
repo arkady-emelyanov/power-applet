@@ -1,0 +1,24 @@
+[package]
+name = "power-applet"
+version = "0.1.0"
+edition = "2024"
+description = "Tray power applet for Linux: battery levels of all devices, power mode and sleep inhibitors"
+
+[dependencies]
+anyhow = "1"
+env_logger = "0.11"
+gtk = "0.18"
+ksni = { version = "0.3.6", default-features = false, features = ["async-io", "blocking"] }
+libc = "0.2"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tao = "0.37.1"
+wry = "0.57.0"
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

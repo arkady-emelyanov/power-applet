@@ -1,0 +1,41 @@
+name: Release
+
+# Builds the applet for a published GitHub release and attaches it to it.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and upload to (e.g. v1.0.0)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  build:
+    # Oldest supported Ubuntu, so the binary runs on any distro with glibc >= 2.35.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - name: Install GTK and WebKitGTK
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked
+      - run: cargo build --locked --release
+      - name: Check the binary reports the release version
+        run: |
+          bin=target/release/power-applet
+          test "$("$bin" --version)" = "power-applet ${TAG#v}"
+          cp "$bin" power-applet-x86_64-linux
+          sha256sum power-applet-x86_64-linux > power-applet-x86_64-linux.sha256
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" power-applet-x86_64-linux power-applet-x86_64-linux.sha256 --clobber

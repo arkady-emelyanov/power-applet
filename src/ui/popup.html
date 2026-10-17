@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --bg: #12151b;
+  --bg-raised: #1a1e26;
+  --bg-hover: #232935;
+  --border: #272d38;
+  --text: #e8ebf0;
+  --muted: #8b93a1;
+  --accent: #2f8fff;
+  --accent-soft: rgba(47, 143, 255, .18);
+  --ok: #4cc38a;
+  --warn: #f09a2a;
+  --warn-soft: rgba(240, 154, 42, .14);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+body {
+  font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  user-select: none; -webkit-user-select: none; cursor: default;
+  border: 1px solid var(--border); position: relative;
+}
+button {
+  font: inherit; color: inherit; background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+button:hover { background: var(--bg-hover); }
+button.icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+svg { width: 16px; height: 16px; fill: currentColor; flex: none; }
+.muted { color: var(--muted); }
+.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#root { display: flex; flex-direction: column; }
+
+/* What powers the computer. */
+header { display: flex; align-items: center; gap: 12px; padding: 14px 12px; border-bottom: 1px solid var(--border); }
+header .info { flex: 1; min-width: 0; }
+header .title { font-weight: 600; font-size: 14px; }
+header .detail { font-size: 12px; }
+header .pct { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+header.low .pct { color: var(--warn); }
+.cell { position: relative; width: 22px; height: 38px; margin-top: 4px; flex: none; border: 2px solid var(--muted); border-radius: 4px; padding: 2px; display: flex; align-items: flex-end; }
+.cell::after { content: ''; position: absolute; top: -6px; left: 5px; width: 8px; height: 3px; border-radius: 2px 2px 0 0; background: var(--muted); }
+.cell i { display: block; width: 100%; border-radius: 1px; background: var(--ok); }
+header.low .cell i { background: var(--warn); }
+header.none .cell { opacity: .45; }
+
+section { padding: 10px 12px 12px; border-bottom: 1px solid var(--border); }
+section[hidden] { display: none; }
+section h2 { margin: 0 0 8px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.empty { color: var(--muted); padding: 2px 0; }
+
+.row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: 6px; }
+.row .ico { display: contents; }
+.row .ico svg { color: var(--muted); width: 18px; height: 18px; }
+.row .text { flex: 1; min-width: 0; }
+.row .sub { font-size: 11px; color: var(--muted); }
+.row.low { background: var(--warn-soft); }
+.row.low .ico svg, .row.low .num { color: var(--warn); }
+.bar { width: 44px; height: 4px; border-radius: 2px; background: var(--bg-hover); flex: none; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.row.low .bar i { background: var(--warn); }
+.num { width: 36px; text-align: right; font-variant-numeric: tabular-nums; flex: none; }
+.badge { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; flex: none; }
+
+/* Power mode switch. */
+.modes { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-raised); }
+.modes button {
+  flex: 1; display: inline-flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0 6px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px;
+}
+.modes button svg { width: 18px; height: 18px; }
+.modes button:hover { background: var(--bg-hover); color: var(--text); }
+.modes button.on { background: var(--accent-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+.modes button.on svg { color: var(--accent); }
+.notes div { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.notes div.error { color: var(--warn); }
+.delays { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+footer { display: flex; gap: 8px; padding: 10px 12px 12px; position: relative; }
+footer .grow { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; }
+footer .grow svg { color: var(--muted); }
+#menu {
+  position: absolute; right: 12px; bottom: 48px; display: none; min-width: 150px; padding: 4px;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, .5);
+}
+#menu.open { display: block; }
+#menu .item { padding: 7px 10px 7px 26px; border-radius: 5px; cursor: pointer; position: relative; white-space: nowrap; }
+#menu .item:hover { background: var(--bg-hover); }
+#menu .item.checked::before { content: '✓'; position: absolute; left: 9px; color: var(--accent); }
+#menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+</style>
+</head>
+<body>
+<div id="root">
+  <header id="hero">
+    <div class="cell"><i id="hero-fill"></i></div>
+    <div class="info">
+      <div class="title ellipsis" id="hero-name">No battery</div>
+      <div class="detail muted ellipsis" id="hero-detail">Running on mains power</div>
+    </div>
+    <div class="pct" id="hero-pct"></div>
+  </header>
+  <section id="devices-section">
+    <h2>Devices</h2>
+    <div id="devices"></div>
+  </section>
+  <section id="modes-section" hidden>
+    <h2>Power mode</h2>
+    <div class="modes" id="modes"></div>
+    <div class="notes" id="notes"></div>
+  </section>
+  <section>
+    <h2>Keeping the computer awake</h2>
+    <div id="inhibitors"></div>
+    <div class="delays" id="delays" hidden></div>
+  </section>
+  <footer>
+    <button class="grow" id="power-settings" title="Power settings"></button>
+    <button class="icon" id="more" title="More"></button>
+    <div id="menu">
+      <div class="item" id="autostart">Start at login</div>
+      <hr>
+      <div class="item" id="quit">Quit</div>
+    </div>
+  </footer>
+</div>
+<script>
+(function () {
+  function send(msg) { window.ipc.postMessage(JSON.stringify(msg)); }
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'class') node.className = attrs[k];
+      else if (k === 'text') node.textContent = attrs[k];
+      else if (k === 'html') node.innerHTML = attrs[k];
+      else if (k.slice(0, 2) === 'on') node.addEventListener(k.slice(2), attrs[k]);
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { node.appendChild(c); });
+    return node;
+  }
+  function svg(path) { return '<svg viewBox="0 0 24 24"><path d="' + path + '"/></svg>'; }
+  var $ = function (id) { return document.getElementById(id); };
+
+  var ICONS = {
+    mouse: svg('M13 1.07V9h7c0-4.08-3.05-7.44-7-7.93zM4 15c0 4.42 3.58 8 8 8s8-3.58 8-8v-4H4v4zm7-13.93C7.05 1.56 4 4.92 4 9h7V1.07z'),
+    keyboard: svg('M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z'),
+    audio: svg('M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z'),
+    gaming: svg('M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z'),
+    phone: svg('M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z'),
+    tablet: svg('M18.5 0h-14C3.12 0 2 1.12 2 2.5v19C2 22.88 3.12 24 4.5 24h14c1.38 0 2.5-1.12 2.5-2.5v-19C21 1.12 19.88 0 18.5 0zm-7 23c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm7.5-4H4V3h15v16z'),
+    pen: svg('M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'),
+    touchpad: svg('M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 9H4V6h16v7zm-9 5H4v-3h7v3zm9 0h-7v-3h7v3z'),
+    ups: svg('M16 7V3h-2v4h-4V3H8v4h-.01C6.9 7 6 7.9 6 8.99v5.49L9.5 18v3h5v-3l3.5-3.51v-5.5c0-1.1-.9-2-2-2z'),
+    battery: svg('M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z'),
+    warning: svg('M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'),
+    performance: svg('M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44zm-9.79 6.84a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z'),
+    balanced: svg('M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z'),
+    'power-saver': svg('M6.05 8.05a7 7 0 0 0-.02 9.88c1.47-3.4 4.09-6.24 7.36-7.93a15.95 15.95 0 0 0-4.54 9.5c2.6 1.23 5.8.78 7.95-1.37C19.92 15.01 20 5 20 5S9.99 5.08 6.05 8.05z'),
+    awake: svg('M20 3H4v10a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4v-3h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z'),
+    settings: svg('M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54a7.36 7.36 0 0 0-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.38.3.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.25.42.49.42h3.84c.25 0 .45-.18.49-.42l.36-2.54a7.36 7.36 0 0 0 1.62-.94l2.39.96c.23.08.49 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z'),
+    more: svg('M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z')
+  };
+  function icon(kind) { return ICONS[kind] || ICONS.battery; }
+
+  var state = { devices: [], inhibitors: [], profileNotes: [] };
+
+  $('power-settings').innerHTML = ICONS.settings + '<span>Power settings</span>';
+  $('more').innerHTML = ICONS.more;
+  $('power-settings').addEventListener('click', function () { send({ kind: 'powerSettings' }); });
+  $('more').addEventListener('click', function (e) { e.stopPropagation(); $('menu').classList.toggle('open'); });
+  $('autostart').addEventListener('click', function () { send({ kind: 'autostart', on: !state.autostart }); });
+  $('quit').addEventListener('click', function () { send({ kind: 'quit' }); });
+  document.addEventListener('click', function () { $('menu').classList.remove('open'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') send({ kind: 'hide' }); });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  function renderHero() {
+    var m = state.main;
+    var hero = $('hero');
+    hero.classList.toggle('low', !!(m && m.low));
+    hero.classList.toggle('none', !m);
+    $('hero-fill').style.height = (m ? m.percent : 0) + '%';
+    $('hero-name').textContent = m ? m.name : 'No battery';
+    $('hero-detail').textContent = m ? m.detail : 'Running on mains power';
+    $('hero-pct').textContent = m ? m.percent + '%' : '';
+  }
+
+  function renderDevices() {
+    var box = $('devices');
+    box.innerHTML = '';
+    $('devices-section').hidden = !state.devices.length;
+    state.devices.forEach(function (d) {
+      box.appendChild(el('div', { class: 'row' + (d.low ? ' low' : ''), title: d.name }, [
+        el('span', { html: d.low ? ICONS.warning : icon(d.kind), title: d.low ? 'Low battery' : d.kindLabel, class: 'ico' }),
+        el('div', { class: 'text' }, [
+          el('div', { class: 'ellipsis', text: d.name }),
+          el('div', { class: 'sub ellipsis', text: d.detail })
+        ]),
+        el('div', { class: 'bar' }, [el('i', { style: 'width:' + d.percent + '%' })]),
+        el('div', { class: 'num', text: d.percent + '%' })
+      ]));
+    });
+  }
+
+  function renderModes() {
+    $('modes-section').hidden = !state.profiles;
+    var box = $('modes');
+    box.innerHTML = '';
+    (state.profiles || []).slice().reverse().forEach(function (p) {
+      box.appendChild(el('button', {
+        class: p.id === state.profile ? 'on' : '', html: icon(p.id) + '<span>' + p.label + '</span>',
+        onclick: function () { send({ kind: 'profile', id: p.id }); }
+      }));
+    });
+    var notes = $('notes');
+    notes.innerHTML = '';
+    state.profileNotes.forEach(function (n) {
+      notes.appendChild(el('div', { class: /^Could not/.test(n) ? 'error' : '', text: n }));
+    });
+  }
+
+  function renderInhibitors() {
+    var box = $('inhibitors');
+    box.innerHTML = '';
+    if (!state.inhibitors.length) box.appendChild(el('div', { class: 'empty', text: 'Nothing is keeping the computer awake.' }));
+    state.inhibitors.forEach(function (i) {
+      box.appendChild(el('div', { class: 'row', title: i.why }, [
+        el('span', { html: ICONS.awake, class: 'ico' }),
+        el('div', { class: 'text' }, [
+          el('div', { class: 'ellipsis', text: i.who }),
+          el('div', { class: 'sub ellipsis', text: i.why || 'No reason given' })
+        ]),
+        el('div', { class: 'badge', text: i.what })
+      ]));
+    });
+    var delays = $('delays');
+    delays.hidden = !state.delays;
+    if (state.delays) {
+      delays.textContent = state.delays[0];
+      delays.title = state.delays[1];
+    }
+  }
+
+  function reportSize() { send({ kind: 'size', height: $('root').getBoundingClientRect().height + 2 }); }
+  new ResizeObserver(reportSize).observe($('root'));
+
+  window.app = {
+    render: function (s) {
+      state = s;
+      renderHero();
+      renderDevices();
+      renderModes();
+      renderInhibitors();
+      $('autostart').classList.toggle('checked', !!s.autostart);
+    },
+    closeMenu: function () { $('menu').classList.remove('open'); }
+  };
+  renderHero();
+  window.addEventListener('DOMContentLoaded', function () { send({ kind: 'ready' }); });
+})();
+</script>
+</body>
+</html>
