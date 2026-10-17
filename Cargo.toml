@@ -1,6 +1,6 @@
 [package]
 name = "power-applet"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Tray power applet for Linux: battery levels of all devices, power mode and sleep inhibitors"
 

@@ -350,9 +350,13 @@ fn present(map: &HashMap<String, OwnedValue>) -> bool {
 }
 
 fn device(path: &str, map: &HashMap<String, OwnedValue>) -> Device {
+    let mut kind = Kind::from_upower(u32_of(map, "Type"));
+    if matches!(kind, Kind::Mouse | Kind::Other) && is_audio(&str_of(map, "NativePath")) {
+        kind = Kind::Audio;
+    }
     Device {
         path: path.to_owned(),
-        kind: Kind::from_upower(u32_of(map, "Type")),
+        kind,
         model: str_of(map, "Model").trim().to_owned(),
         vendor: str_of(map, "Vendor").trim().to_owned(),
         percentage: map.get("Percentage").and_then(|v| f64::try_from(&**v).ok()).unwrap_or(0.0),
@@ -363,6 +367,31 @@ fn device(path: &str, map: &HashMap<String, OwnedValue>) -> Device {
         time_to_full: i64_of(map, "TimeToFull"),
         updated: map.get("UpdateTime").and_then(|v| u64::try_from(&**v).ok()).unwrap_or(0),
     }
+}
+
+/// Whether the power supply `native_path` belongs to an audio device that UPower took for
+/// a mouse. UPower only reads `SOUND_FORM_FACTOR` from a sibling in the sound subsystem,
+/// so a HID battery whose sibling is just an input node (a headset's battery reported
+/// through uhid, say) falls back to "mouse", even when udev has tagged that input node
+/// as a headset. Look at the input nodes' udev properties ourselves.
+fn is_audio(native_path: &str) -> bool {
+    if native_path.is_empty() || native_path.contains('/') {
+        return false;
+    }
+    let dir = format!("/sys/class/power_supply/{native_path}/device/input");
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    entries.flatten().any(|e| {
+        let name = e.file_name();
+        std::fs::read_to_string(format!("/run/udev/data/+input:{}", name.to_string_lossy()))
+            .is_ok_and(|db| audio_input(&db))
+    })
+}
+
+/// Reads a udev database entry: an input node that udev calls a headset, headphones or
+/// speakers, and that isn't also a mouse.
+fn audio_input(db: &str) -> bool {
+    let prop = |key: &str| db.lines().find_map(|l| l.strip_prefix("E:")?.strip_prefix(key)?.strip_prefix('='));
+    prop("ID_INPUT_MOUSE") != Some("1") && matches!(prop("SOUND_FORM_FACTOR"), Some("headset" | "headphone" | "speaker"))
 }
 
 fn str_of(map: &HashMap<String, OwnedValue>, key: &str) -> String {
@@ -510,6 +539,17 @@ mod tests {
         d.warning_level = 3;
         assert!(d.low());
         assert_eq!(d.name(), "Mouse");
+    }
+
+    #[test]
+    fn audio_inputs() {
+        let headset = "I:13174676\nE:SOUND_INITIALIZED=1\nE:SOUND_FORM_FACTOR=headset\nE:ID_INPUT=1\nE:ID_INPUT_KEY=1\nG:seat\n";
+        assert!(audio_input(headset));
+        assert!(!audio_input("E:ID_INPUT=1\nE:ID_INPUT_MOUSE=1\n"));
+        assert!(!audio_input("E:SOUND_FORM_FACTOR=headset\nE:ID_INPUT_MOUSE=1\n"));
+        assert!(!audio_input("E:SOUND_FORM_FACTOR=webcam\n"));
+        assert!(!is_audio(""));
+        assert!(!is_audio("../x"));
     }
 
     /// Reads the real system; run with `cargo test -- --ignored --nocapture`.
