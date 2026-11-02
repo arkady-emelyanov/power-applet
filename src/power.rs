@@ -350,10 +350,7 @@ fn present(map: &HashMap<String, OwnedValue>) -> bool {
 }
 
 fn device(path: &str, map: &HashMap<String, OwnedValue>) -> Device {
-    let mut kind = Kind::from_upower(u32_of(map, "Type"));
-    if matches!(kind, Kind::Mouse | Kind::Other) && is_audio(&str_of(map, "NativePath")) {
-        kind = Kind::Audio;
-    }
+    let kind = hid_kind(&str_of(map, "NativePath")).unwrap_or_else(|| Kind::from_upower(u32_of(map, "Type")));
     Device {
         path: path.to_owned(),
         kind,
@@ -369,29 +366,42 @@ fn device(path: &str, map: &HashMap<String, OwnedValue>) -> Device {
     }
 }
 
-/// Whether the power supply `native_path` belongs to an audio device that UPower took for
-/// a mouse. UPower only reads `SOUND_FORM_FACTOR` from a sibling in the sound subsystem,
-/// so a HID battery whose sibling is just an input node (a headset's battery reported
-/// through uhid, say) falls back to "mouse", even when udev has tagged that input node
-/// as a headset. Look at the input nodes' udev properties ourselves.
-fn is_audio(native_path: &str) -> bool {
+/// The kind of a HID battery, told by the input nodes of its own HID device, when they
+/// say. UPower instead looks at every input node under the HID device's parent, which is
+/// too wide for virtual devices: all uhid devices share `/devices/virtual/misc/uhid`, so
+/// a mouse and a headset whose batteries are reported through uhid both take the kind of
+/// whichever input node UPower happened to see last.
+fn hid_kind(native_path: &str) -> Option<Kind> {
     if native_path.is_empty() || native_path.contains('/') {
-        return false;
+        return None;
     }
     let dir = format!("/sys/class/power_supply/{native_path}/device/input");
-    let Ok(entries) = std::fs::read_dir(dir) else { return false };
-    entries.flatten().any(|e| {
-        let name = e.file_name();
-        std::fs::read_to_string(format!("/run/udev/data/+input:{}", name.to_string_lossy()))
-            .is_ok_and(|db| audio_input(&db))
+    std::fs::read_dir(dir).ok()?.flatten().find_map(|e| {
+        let db = std::fs::read_to_string(format!("/run/udev/data/+input:{}", e.file_name().to_string_lossy())).ok()?;
+        input_kind(&db)
     })
 }
 
-/// Reads a udev database entry: an input node that udev calls a headset, headphones or
-/// speakers, and that isn't also a mouse.
-fn audio_input(db: &str) -> bool {
+/// Reads a udev database entry for an input node. Mice often have a keyboard node too (for
+/// macro keys), so the more specific kinds come first.
+fn input_kind(db: &str) -> Option<Kind> {
     let prop = |key: &str| db.lines().find_map(|l| l.strip_prefix("E:")?.strip_prefix(key)?.strip_prefix('='));
-    prop("ID_INPUT_MOUSE") != Some("1") && matches!(prop("SOUND_FORM_FACTOR"), Some("headset" | "headphone" | "speaker"))
+    let flag = |key: &str| prop(key) == Some("1");
+    if matches!(prop("SOUND_FORM_FACTOR"), Some("headset" | "headphone" | "speaker")) && !flag("ID_INPUT_MOUSE") {
+        Some(Kind::Audio)
+    } else if flag("ID_INPUT_MOUSE") {
+        Some(Kind::Mouse)
+    } else if flag("ID_INPUT_TOUCHPAD") {
+        Some(Kind::Touchpad)
+    } else if flag("ID_INPUT_TABLET") {
+        Some(Kind::Tablet)
+    } else if flag("ID_INPUT_JOYSTICK") {
+        Some(Kind::Gaming)
+    } else if flag("ID_INPUT_KEYBOARD") {
+        Some(Kind::Keyboard)
+    } else {
+        None
+    }
 }
 
 fn str_of(map: &HashMap<String, OwnedValue>, key: &str) -> String {
@@ -542,14 +552,16 @@ mod tests {
     }
 
     #[test]
-    fn audio_inputs() {
+    fn input_kinds() {
         let headset = "I:13174676\nE:SOUND_INITIALIZED=1\nE:SOUND_FORM_FACTOR=headset\nE:ID_INPUT=1\nE:ID_INPUT_KEY=1\nG:seat\n";
-        assert!(audio_input(headset));
-        assert!(!audio_input("E:ID_INPUT=1\nE:ID_INPUT_MOUSE=1\n"));
-        assert!(!audio_input("E:SOUND_FORM_FACTOR=headset\nE:ID_INPUT_MOUSE=1\n"));
-        assert!(!audio_input("E:SOUND_FORM_FACTOR=webcam\n"));
-        assert!(!is_audio(""));
-        assert!(!is_audio("../x"));
+        assert_eq!(input_kind(headset), Some(Kind::Audio));
+        assert_eq!(input_kind("E:ID_INPUT_MOUSE=1\nE:ID_INPUT=1\nE:ID_INPUT_KEY=1\n"), Some(Kind::Mouse));
+        assert_eq!(input_kind("E:SOUND_FORM_FACTOR=headset\nE:ID_INPUT_MOUSE=1\n"), Some(Kind::Mouse));
+        assert_eq!(input_kind("E:ID_INPUT_KEYBOARD=1\nE:ID_INPUT_MOUSE=1\n"), Some(Kind::Mouse));
+        assert_eq!(input_kind("E:ID_INPUT=1\nE:ID_INPUT_KEY=1\n"), None);
+        assert_eq!(input_kind("E:SOUND_FORM_FACTOR=webcam\n"), None);
+        assert_eq!(hid_kind(""), None);
+        assert_eq!(hid_kind("../x"), None);
     }
 
     /// Reads the real system; run with `cargo test -- --ignored --nocapture`.
